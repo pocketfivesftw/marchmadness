@@ -21,7 +21,7 @@ sys.stdout.reconfigure(line_buffering=True)
 
 from dotenv import load_dotenv
 
-from espn import fetch_games
+from espn import fetch_games, fetch_odds
 from notify import notify
 
 load_dotenv()
@@ -72,10 +72,22 @@ def check_and_notify(game: dict) -> None:
         broadcast = game.get("broadcast", "")
 
         channel_line = f"Watch on {broadcast}\n" if broadcast else ""
+
+        odds = fetch_odds(game["id"])
+        if odds:
+            ml_line = f"ML: {away} {odds['away_ml']} / {home} {odds['home_ml']}"
+            spread_line = f"Spread: {odds['spread_line']} ({odds['spread_odds']})" if odds["spread_line"] else ""
+            total_line = f"O/U: {odds['total_line']} (o {odds['total_over_odds']})" if odds["total_line"] else ""
+            odds_parts = [p for p in [ml_line, spread_line, total_line] if p]
+            odds_line = "  |  ".join(odds_parts) + "\n"
+        else:
+            odds_line = ""
+
         message = (
             f"\U0001f3c0 CLOSE GAME \u2014 March Madness\n"
             f"{away} {away_s}  \u2013  {home} {home_s}\n"
             f"{clock} left in {label}\n"
+            f"{odds_line}"
             f"{channel_line}"
         ).rstrip()
         log(f"ALERT: {away} {away_s} - {home} {home_s} | {clock} in {label}" + (f" | {broadcast}" if broadcast else ""))
