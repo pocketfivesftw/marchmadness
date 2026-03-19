@@ -22,16 +22,20 @@ sys.stdout.reconfigure(line_buffering=True)
 from dotenv import load_dotenv
 
 from espn import fetch_games
+from odds import fetch_live_odds
 from notify import notify
 
 load_dotenv()
 
-CLOSE_GAME_MARGIN = 6       # points
+CLOSE_GAME_MARGIN = 20       # points
 THRESHOLDS = [19, 16, 11, 8, 5, 3, 1]      # minutes remaining to notify at
 POLL_INTERVAL = 30          # seconds between API calls
 
 # In-memory dedup: (game_id, period, threshold_minutes)
 sent: set[tuple] = set()
+
+# Pre-game odds cache: populated from ESPN scoreboard before games go live
+pregame_odds: dict[str, dict] = {}
 
 
 def period_label(period: int) -> str:
@@ -75,14 +79,24 @@ def check_and_notify(game: dict) -> None:
 
         channel_line = f"Watch on {broadcast}\n" if broadcast else ""
 
-        odds = game.get("odds")
-        if odds:
-            ml = f"ML: {away} {odds['away_ml']} / {home} {odds['home_ml']}" if odds.get("away_ml") else ""
-            spread = f"Spread: {odds['spread_line']} ({odds['spread_odds']})" if odds.get("spread_line") else ""
-            parts = [p for p in [ml, spread] if p]
-            odds_line = "  |  ".join(parts) + "\n" if parts else ""
-        else:
-            odds_line = ""
+        live_odds = game.get("odds") or fetch_live_odds(game["home_display_name"], game["away_display_name"])
+        open_odds = pregame_odds.get(game["id"])
+
+        def fmt_odds(o: dict) -> str:
+            ml = f"ML: {away} {o['away_ml']} / {home} {o['home_ml']}" if o.get("away_ml") else ""
+            spread = f"Spread: {o['spread_line']} ({o['spread_odds']})" if o.get("spread_line") else ""
+            return "  |  ".join(p for p in [ml, spread] if p)
+
+        odds_parts = []
+        if open_odds:
+            s = fmt_odds(open_odds)
+            if s:
+                odds_parts.append(f"Open: {s}")
+        if live_odds:
+            s = fmt_odds(live_odds)
+            if s:
+                odds_parts.append(f"Live: {s}")
+        odds_line = "\n".join(odds_parts) + "\n" if odds_parts else ""
 
         message = (
             f"\U0001f3c0 CLOSE GAME \u2014 March Madness\n"
@@ -104,6 +118,9 @@ def run() -> None:
             if games:
                 log(f"{len(games)} in-progress tournament game(s) found")
             for game in games:
+                # Cache ESPN odds while available (only present pre-game)
+                if game.get("odds"):
+                    pregame_odds[game["id"]] = game["odds"]
                 check_and_notify(game)
         except Exception as e:
             log(f"Poll error: {e}")

@@ -51,6 +51,8 @@ def _parse_game(event: dict) -> dict | None:
     away_score = int(away.get("score") or 0)
     home_name = home.get("team", {}).get("shortDisplayName", "Home")
     away_name = away.get("team", {}).get("shortDisplayName", "Away")
+    home_display_name = home.get("team", {}).get("displayName", home_name)
+    away_display_name = away.get("team", {}).get("displayName", away_name)
 
     # Broadcast channel: prefer the simple string, fall back to broadcasts array
     broadcast = competition.get("broadcast", "")
@@ -68,6 +70,8 @@ def _parse_game(event: dict) -> dict | None:
         "display_clock": display_clock,
         "home_name": home_name,
         "away_name": away_name,
+        "home_display_name": home_display_name,
+        "away_display_name": away_display_name,
         "home_score": home_score,
         "away_score": away_score,
         "score_diff": abs(home_score - away_score),
