@@ -21,13 +21,13 @@ sys.stdout.reconfigure(line_buffering=True)
 
 from dotenv import load_dotenv
 
-from espn import fetch_games, fetch_odds
+from espn import fetch_games
 from notify import notify
 
 load_dotenv()
 
 CLOSE_GAME_MARGIN = 6       # points
-THRESHOLDS = [5, 3, 1]      # minutes remaining to notify at
+THRESHOLDS = [19, 16, 11, 8, 5, 3, 1]      # minutes remaining to notify at
 POLL_INTERVAL = 30          # seconds between API calls
 
 # In-memory dedup: (game_id, period, threshold_minutes)
@@ -35,6 +35,8 @@ sent: set[tuple] = set()
 
 
 def period_label(period: int) -> str:
+    if period == 1:
+        return "1st half"
     if period == 2:
         return "2nd half"
     if period == 3:
@@ -73,25 +75,12 @@ def check_and_notify(game: dict) -> None:
 
         channel_line = f"Watch on {broadcast}\n" if broadcast else ""
 
-        odds = fetch_odds(game["id"])
+        odds = game.get("odds")
         if odds:
-            def _odds_str(away_ml, home_ml, spread_line, spread_odds, away, home):
-                ml = f"ML: {away} {away_ml} / {home} {home_ml}" if away_ml else ""
-                spread = f"Spread: {spread_line} ({spread_odds})" if spread_line else ""
-                return "  |  ".join(p for p in [ml, spread] if p)
-
-            live_str = _odds_str(
-                odds["live_away_ml"], odds["live_home_ml"],
-                odds["live_spread_line"], odds["live_spread_odds"],
-                away, home,
-            )
-            close_str = _odds_str(
-                odds["close_away_ml"], odds["close_home_ml"],
-                odds["close_spread_line"], odds["close_spread_odds"],
-                away, home,
-            )
-            odds_line = (f"Live:  {live_str}\n" if live_str else "") + \
-                        (f"Close: {close_str}\n" if close_str else "")
+            ml = f"ML: {away} {odds['away_ml']} / {home} {odds['home_ml']}" if odds.get("away_ml") else ""
+            spread = f"Spread: {odds['spread_line']} ({odds['spread_odds']})" if odds.get("spread_line") else ""
+            parts = [p for p in [ml, spread] if p]
+            odds_line = "  |  ".join(parts) + "\n" if parts else ""
         else:
             odds_line = ""
 

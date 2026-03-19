@@ -6,7 +6,10 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(gh auth:*)",
-      "Bash(gh repo:*)"
+      "Bash(gh repo:*)",
+      "WebSearch",
+      "WebFetch(domain:the-odds-api.com)",
+      "WebFetch(domain:www.wagerlab.app)"
     ]
   }
 }
