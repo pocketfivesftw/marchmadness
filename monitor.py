@@ -83,8 +83,13 @@ def check_and_notify(game: dict) -> None:
         open_odds = pregame_odds.get(game["id"])
 
         def fmt_odds(o: dict) -> str:
-            ml = f"ML: {away} {o['away_ml']} / {home} {o['home_ml']}" if o.get("away_ml") else ""
-            spread = f"Spread: {o['spread_line']} ({o['spread_odds']})" if o.get("spread_line") else ""
+            def sign(v):
+                try:
+                    return f"+{v}" if float(v) > 0 else str(v)
+                except (TypeError, ValueError):
+                    return str(v) if v is not None else ""
+            ml = f"ML: {away} {sign(o['away_ml'])} / {home} {sign(o['home_ml'])}" if o.get("away_ml") else ""
+            spread = f"Spread: {o['spread_line']} ({sign(o['spread_odds'])})" if o.get("spread_line") else ""
             return "  |  ".join(p for p in [ml, spread] if p)
 
         odds_parts = []
