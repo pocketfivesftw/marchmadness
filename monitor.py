@@ -2,7 +2,7 @@
 """March Madness close game notification service.
 
 Polls the ESPN API every 30 seconds. When an NCAA Tournament game
-is in the 2nd half or OT with 5, 3, or 1 minute(s) remaining and
+is in the 2nd half or OT with 8, 5, 3, or 1 minute(s) remaining and
 the score difference is 6 points or fewer, sends an alert to Slack
 and/or Telegram.
 
@@ -21,7 +21,7 @@ sys.stdout.reconfigure(line_buffering=True)
 
 from dotenv import load_dotenv
 
-from espn import fetch_games
+from espn import fetch_games, fetch_upcoming_odds
 from odds import fetch_live_odds
 from notify import notify
 
@@ -136,13 +136,18 @@ def run() -> None:
     notify("\U0001f3c0 March Madness notifier started. Watching for close games...")
     while True:
         try:
+            # Cache odds for upcoming games before they go in-progress
+            upcoming = fetch_upcoming_odds()
+            for game_id, odds in upcoming.items():
+                if game_id not in pregame_odds:
+                    log(f"Caching open odds for upcoming game {game_id}: {odds}")
+                pregame_odds[game_id] = odds
+
             games = fetch_games()
             if games:
                 log(f"{len(games)} in-progress tournament game(s) found")
             for game in games:
-                # Cache ESPN odds while available (only present pre-game)
-                if game.get("odds"):
-                    pregame_odds[game["id"]] = game["odds"]
+                log(f"Open odds cache for {game['away_name']} vs {game['home_name']} (id={game['id']}): {pregame_odds.get(game['id'])}")
                 check_and_notify(game)
         except Exception as e:
             log(f"Poll error: {e}")

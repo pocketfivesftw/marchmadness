@@ -23,6 +23,31 @@ def fetch_games() -> list[dict]:
     return games
 
 
+def fetch_upcoming_odds() -> dict[str, dict]:
+    """Fetch odds for upcoming (pre-game) NCAA Tournament games, keyed by game id."""
+    resp = requests.get(SCOREBOARD_URL, timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
+
+    result = {}
+    for event in data.get("events", []):
+        competition = event.get("competitions", [{}])[0]
+        if competition.get("tournamentId") != NCAA_TOURNAMENT_ID:
+            continue
+        status_name = competition.get("status", event.get("status", {})).get("type", {}).get("name", "")
+        if status_name != "STATUS_SCHEDULED":
+            continue
+        competitors = competition.get("competitors", [])
+        home = next((c for c in competitors if c.get("homeAway") == "home"), competitors[0] if competitors else {})
+        away = next((c for c in competitors if c.get("homeAway") == "away"), competitors[1] if len(competitors) > 1 else {})
+        home_name = home.get("team", {}).get("shortDisplayName", "Home")
+        away_name = away.get("team", {}).get("shortDisplayName", "Away")
+        odds = _parse_odds(competition, away_name, home_name)
+        if odds:
+            result[event["id"]] = odds
+    return result
+
+
 def _parse_game(event: dict) -> dict | None:
     competition = event.get("competitions", [{}])[0]
 
